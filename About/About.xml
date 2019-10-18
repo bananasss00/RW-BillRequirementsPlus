@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModMetaData>
+	<name>BillRequirementsPlus</name>
+	<author>PirateBY</author>
+	<supportedVersions><li>1.0</li></supportedVersions>
+	<url></url>
+	<description>
+	Version 1.6.2
+	
+	[English]
+	Shows the amount of the required ingredient or a dash if the ingredient is not enough.
+	
+	[Russian]
+	Показывает количество необходимого ингредиента или прочерк, если ингредиента недостаточно.
+	</description>
+</ModMetaData>

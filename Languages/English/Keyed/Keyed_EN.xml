@@ -1,0 +1,8 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<LanguageData>
+
+	<BillRequirementsPlus_SettingsCategory>BillRequirementsPlus</BillRequirementsPlus_SettingsCategory>
+	<DashesIfLessRequiredAmount>Dashes if less than the required amount</DashesIfLessRequiredAmount>
+	<CountForbiddenItems>Count forbidden items on map</CountForbiddenItems>
+
+</LanguageData>
