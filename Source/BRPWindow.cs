@@ -130,7 +130,8 @@ namespace BillRequirementsPlus
                 {
                     foreach (var bill in billGiver.BillStack.Bills)
                     {
-                        if (bill.suspended || !bill.ShouldDoNow() || ((Bill_Production)bill).repeatMode == BillRepeatModeDefOf.Forever)
+                        Bill_Production billProduction = bill as Bill_Production;
+                        if (billProduction == null || billProduction.suspended || !billProduction.ShouldDoNow() || billProduction.repeatMode == BillRepeatModeDefOf.Forever)
                             continue;
 
                         IEnumerable<Pair<IngredientCount, float>> notAllowedCounts = BillRequirementsMod.GetNotAllowedCount(bill);
@@ -139,7 +140,7 @@ namespace BillRequirementsPlus
                             var drawEntry = new DrawEntry
                             {
                                 building = thing,
-                                bill = (Bill_Production)bill,
+                                bill = billProduction,
                                 billStr = $"{thing.LabelCap}: {bill.LabelCap}",
                                 ingredientsStrs = new List<string>()
                             };

@@ -43,7 +43,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="HugsLib">
-      <HintPath>..\..\HugsLib[upd]\Assemblies\HugsLib.dll</HintPath>
+      <HintPath>..\..\..\..\2-Hardcore-SK\Mods\HugsLib\Assemblies\HugsLib.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
