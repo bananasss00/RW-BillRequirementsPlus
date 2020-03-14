@@ -54,8 +54,8 @@ namespace BillRequirementsPlus
                     }
                 }
 
-                if (countMax < recipeIngredient.GetBaseCount())
-                    yield return new Pair<IngredientCount, float>(ingredientCount, countMax);
+                if (countMax < recipeIngredient.GetBaseCount()/* && ingredientCount != null*/)
+                    yield return new Pair<IngredientCount, float>(/*ingredientCount*/recipeIngredient, countMax);
             }
         }
 
@@ -121,6 +121,7 @@ namespace BillRequirementsPlus
             FixedNotSelectable,
             FixedSelectableAllowed,
             SelectableAllowed,
+            SelectableNotAllowed,
             Unknown
         }
 
@@ -137,8 +138,10 @@ namespace BillRequirementsPlus
                 return ERecipeType.Unknown;
             }
 
-            if (bill.recipe.fixedIngredientFilter.Allows(td) && bill.ingredientFilter.Allows(td))
-                return ERecipeType.SelectableAllowed;
+            if (bill.recipe.fixedIngredientFilter.Allows(td))
+            {
+                return bill.ingredientFilter.Allows(td) ? ERecipeType.SelectableAllowed : ERecipeType.SelectableNotAllowed;
+            }
 
             return ERecipeType.Unknown;
         }

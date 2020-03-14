@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using UnityEngine;
@@ -36,12 +37,13 @@ namespace BillRequirementsPlus
         int nextUpdateTick;
         Vector2 resultsAreaScroll;
         List<DrawEntry> toDraw;
+        private string quickSearch = "";
 
         public override Vector2 InitialSize { get => new Vector2(640f, 480f); }
 
         public BRPWindow()
         {
-            optionalTitle = "BillRequirementsPlus";
+            //optionalTitle = "BillRequirementsPlus";
             preventCameraMotion = false;
             absorbInputAroundWindow = false;
             draggable = true;
@@ -55,7 +57,23 @@ namespace BillRequirementsPlus
             public Thing building;
             public Bill_Production bill;
             public string billStr;
-            public List<string> ingredientsStrs;
+
+            public List< Pair<IngredientCount, float> > ingredients;
+
+            public List<string> ingredientsStrs
+            {
+                get
+                {
+                    var result = new List<string>();
+
+                    foreach (var ing in ingredients)
+                    {
+                        result.Add($"    {ing.First.Summary} ({ing.Second}/{ing.First.GetBaseCount()})");
+                    }
+
+                    return result;
+                }
+            }
         }
         
         public override void DoWindowContents(Rect inRect)
@@ -72,18 +90,27 @@ namespace BillRequirementsPlus
             listing.ColumnWidth = inRect.width/* / 2.1f*/;
             listing.Begin(inRect);
 
+            quickSearch = Widgets.TextField(new Rect(0, 0, inRect.width - 16f, 30f), quickSearch);
+
+
             Rect outRect = new Rect(inRect);
-            outRect.yMin += 5f;
+            outRect.yMin += 35f;
             outRect.yMax -= 5f;
             outRect.width -= 5f;
 
             int linesToDraw = 0;
-            toDraw.ForEach(x => linesToDraw += x.ingredientsStrs.Count + 1);
+            var drawEntrys = String.IsNullOrEmpty(quickSearch)
+                ? toDraw
+                : toDraw.Where(x => x.bill.recipe.ProducedThingDef.LabelCap.ToLower().Contains(quickSearch))
+                    .ToList();
+
+            drawEntrys.ForEach(x => linesToDraw += x.ingredientsStrs.Count + 1);
+
             Rect viewRect = new Rect(0f, 0f, outRect.width - 16f, (float)linesToDraw * 25f + 100f);
             Widgets.BeginScrollView(outRect, ref resultsAreaScroll, viewRect);
 
             float num = 0f;
-            foreach (DrawEntry e in toDraw)
+            foreach (DrawEntry e in drawEntrys)
             {
                 Rect billRect = new Rect(0f, num, viewRect.width * 0.90f, 23f);
                 GUIStyle mainLineStyle = new GUIStyle(GUI.skin.label);
@@ -134,23 +161,16 @@ namespace BillRequirementsPlus
                         if (billProduction == null || billProduction.suspended || !billProduction.ShouldDoNow() || billProduction.repeatMode == BillRepeatModeDefOf.Forever)
                             continue;
 
-                        IEnumerable<Pair<IngredientCount, float>> notAllowedCounts = BillRequirementsMod.GetNotAllowedCount(bill);
-                        if (notAllowedCounts.ToList().Count > 0)
+                        List<Pair<IngredientCount, float>> notAllowedCounts = BillRequirementsMod.GetNotAllowedCount(bill).ToList();
+                        if (notAllowedCounts.Any())
                         {
-                            var drawEntry = new DrawEntry
+                            toDraw.Add(new DrawEntry
                             {
                                 building = thing,
                                 bill = billProduction,
                                 billStr = $"{thing.LabelCap}: {bill.LabelCap}",
-                                ingredientsStrs = new List<string>()
-                            };
-                            
-                            foreach (var notAllowedCount in notAllowedCounts)
-                            {
-                                drawEntry.ingredientsStrs.Add($"    {notAllowedCount.First.Summary} ({notAllowedCount.Second}/{notAllowedCount.First.GetBaseCount()})");
-                            }
-
-                            toDraw.Add(drawEntry);
+                                ingredients = notAllowedCounts
+                            });
                         }
                     }
                 }
