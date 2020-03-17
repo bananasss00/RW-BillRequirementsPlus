@@ -35,11 +35,10 @@ namespace BillRequirementsPlus
             foreach (var recipeIngredient in recipe.ingredients)
             {
                 float countMax = 0f;
-                IngredientCount ingredientCount = null;
-
                 foreach (var td in recipeIngredient.filter.AllowedThingDefs)
                 {
-                    if (GetType(td, recipeIngredient, billProduction) != ERecipeType.Unknown)
+                    var ingType = GetType(td, recipeIngredient, billProduction);
+                    if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed)
                     {
                         float count = ThingCountOnMap(td);
 
@@ -49,7 +48,6 @@ namespace BillRequirementsPlus
                         if (count > countMax || countMax < 0.0001f)
                         {
                             countMax = count * recipe.IngredientValueGetter.ValuePerUnitOf(td);
-                            ingredientCount = recipeIngredient;
                         }
                     }
                 }
@@ -69,7 +67,8 @@ namespace BillRequirementsPlus
 
             foreach (var td in ing.filter.AllowedThingDefs)
             {
-                if (GetType(td, ing, bill) != ERecipeType.Unknown)
+                var ingType = GetType(td, ing, bill);
+                if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed)
                 {
                     float count = ThingCountOnMap(td);
 
@@ -160,17 +159,37 @@ namespace BillRequirementsPlus
 
         static float ThingCountOnMap(ThingDef d)
         {
-            float count = 0;
-            
-            List<Thing> list = Find.CurrentMap.listerThings.ThingsInGroup(ThingRequestGroup.HaulableAlways);
-            foreach (Thing thing in list)
+            if (!_thingCountOnMapCached.TryGetValue(d, out CountInfo countInfo))
             {
-                if (!thing.Position.Fogged(thing.Map) && d == thing.def && (Settings.CountForbiddenItems || !thing.IsForbidden(Faction.OfPlayer)))
-                    count += thing.stackCount;
+                countInfo = new CountInfo();
+                _thingCountOnMapCached[d] = countInfo;
             }
 
-            return count;
+            int ticks = Find.TickManager.TicksGame;
+            if (Math.Abs(ticks - countInfo.tickUpdated) > 180)
+            {
+                float count = 0;
+                List<Thing> list = Find.CurrentMap.listerThings.ThingsInGroup(ThingRequestGroup.HaulableAlways);
+                foreach (Thing thing in list)
+                {
+                    if (!thing.Position.Fogged(thing.Map) && d == thing.def && (Settings.CountForbiddenItems || !thing.IsForbidden(Faction.OfPlayer)))
+                        count += thing.stackCount;
+                }
+
+                countInfo.count = count;
+                countInfo.tickUpdated = ticks;
+            }
+
+            return countInfo.count;
         }
+
+        public class CountInfo
+        {
+            public int tickUpdated = 0;
+            public float count = 0;
+        }
+
+        private static Dictionary<ThingDef, CountInfo> _thingCountOnMapCached = new Dictionary<ThingDef, CountInfo>();
 
         public static ModSettings Settings;
         public static Bill_Production CurrentBill { get; set; }

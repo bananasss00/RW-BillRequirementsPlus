@@ -36,7 +36,7 @@ namespace BillRequirementsPlus
     {
         int nextUpdateTick;
         Vector2 resultsAreaScroll;
-        List<DrawEntry> toDraw;
+        List<BadBill> badBills;
         private string quickSearch = "";
 
         public override Vector2 InitialSize { get => new Vector2(640f, 480f); }
@@ -49,10 +49,10 @@ namespace BillRequirementsPlus
             draggable = true;
             doCloseX = true;
             nextUpdateTick = 0;
-            toDraw = new List<DrawEntry>();
+            badBills = new List<BadBill>();
         }
 
-        class DrawEntry
+        class BadBill
         {
             public Thing building;
             public Bill_Production bill;
@@ -100,8 +100,8 @@ namespace BillRequirementsPlus
 
             int linesToDraw = 0;
             var drawEntrys = String.IsNullOrEmpty(quickSearch)
-                ? toDraw
-                : toDraw.Where(x => x.bill.recipe.ProducedThingDef.LabelCap.ToLower().Contains(quickSearch))
+                ? badBills
+                : badBills.Where(x => x.bill.recipe.ProducedThingDef.LabelCap.ToLower().Contains(quickSearch))
                     .ToList();
 
             drawEntrys.ForEach(x => linesToDraw += x.ingredientsStrs.Count + 1);
@@ -110,7 +110,7 @@ namespace BillRequirementsPlus
             Widgets.BeginScrollView(outRect, ref resultsAreaScroll, viewRect);
 
             float num = 0f;
-            foreach (DrawEntry e in drawEntrys)
+            foreach (BadBill e in drawEntrys)
             {
                 Rect billRect = new Rect(0f, num, viewRect.width * 0.90f, 23f);
                 GUIStyle mainLineStyle = new GUIStyle(GUI.skin.label);
@@ -148,7 +148,7 @@ namespace BillRequirementsPlus
 
         private void UpdateDrawerList()
         {
-            toDraw.Clear();
+            badBills.Clear();
 
             foreach (var thing in Find.CurrentMap.listerThings.ThingsMatching(ThingRequest.ForGroup(ThingRequestGroup.PotentialBillGiver)))
             {
@@ -164,7 +164,7 @@ namespace BillRequirementsPlus
                         List<Pair<IngredientCount, float>> notAllowedCounts = BillRequirementsMod.GetNotAllowedCount(bill).ToList();
                         if (notAllowedCounts.Any())
                         {
-                            toDraw.Add(new DrawEntry
+                            badBills.Add(new BadBill
                             {
                                 building = thing,
                                 bill = billProduction,
