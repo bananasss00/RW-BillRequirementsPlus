@@ -43,7 +43,7 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="HugsLib">
-      <HintPath>..\..\HugsLib\Assemblies\HugsLib.dll</HintPath>
+      <HintPath>C:\Games\RimWorld v1.0.2282\Mods\HugsLib\Assemblies\HugsLib.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -58,6 +58,8 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BRPComponent.cs" />
+    <Compile Include="BRPDefOf.cs" />
     <Compile Include="BRPWindow.cs" />
     <Compile Include="Controller.cs" />
     <Compile Include="Detours.cs" />

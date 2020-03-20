@@ -1,88 +1,120 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Harmony;
-using Verse;
-using System.Linq;
-using System.Collections.Generic;
 using RimWorld;
 using UnityEngine;
+using Verse;
 
-namespace BillRequirementsPlus
-{
-    public class BillRequirementsMod : Verse.Mod
-    {
-        public BillRequirementsMod(ModContentPack content) : base(content)
-        {
+namespace BillRequirementsPlus {
+    public class BillRequirementsMod : Mod {
+        private const int UpdateDelayThingsCount = 180;
+        private static readonly Dictionary<ThingDef, CountInfo> ThingCountOnMapCached =
+            new Dictionary<ThingDef, CountInfo>();
+
+        public static ModSettings Settings;
+
+        public BillRequirementsMod(ModContentPack content) : base(content) {
             HarmonyInstance.Create("rimworld.harmony.bill_requirements_plus").PatchAll(Assembly.GetExecutingAssembly());
             Settings = GetSettings<ModSettings>();
-            Log.Message($"BillRequirementsPlus :: Initialized");
+            Log.Message("BillRequirementsPlus :: Initialized");
         }
 
-        public override string SettingsCategory()
-        {
+        /// <summary>
+        /// Current opened Bill
+        /// </summary>
+        public static Bill_Production CurrentBill { get; set; }
+
+        public override string SettingsCategory() {
             return Settings.SettingsCategory();
         }
 
-        public override void DoSettingsWindowContents(Rect inRect)
-        {
+        public override void DoSettingsWindowContents(Rect inRect) {
             Settings.DoSettingsWindowContents(inRect);
         }
 
-        public static IEnumerable<Pair<IngredientCount, float>> GetNotAllowedCount(Bill bill)
-        {
-            Bill_Production billProduction = (Bill_Production) bill;
-            RecipeDef recipe = bill.recipe;
-            foreach (var recipeIngredient in recipe.ingredients)
-            {
-                float countMax = 0f;
-                foreach (var td in recipeIngredient.filter.AllowedThingDefs)
-                {
+        public class NotResolved {
+            public ThingDef Def;
+            public IngredientCount IngCount;
+            public ERecipeType IngType;
+            public float Count;
+        }
+
+        public static IEnumerable<NotResolved> GetNotResolvedIngs(Bill bill) {
+            var billProduction = (Bill_Production) bill;
+            var recipe = bill.recipe;
+            foreach (var recipeIngredient in recipe.ingredients) {
+                var countMax = 0f;
+                ThingDef def = null;
+                ERecipeType type = ERecipeType.Unknown;
+                foreach (var td in recipeIngredient.filter.AllowedThingDefs) {
                     var ingType = GetType(td, recipeIngredient, billProduction);
-                    if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed)
-                    {
-                        float count = ThingCountOnMap(td);
+                    if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed) {
+                        var count = ThingCountOnMap(td);
+
+                        if (td.smallVolume)
+                            count *= 10f;
+
+                        if (count > countMax || countMax < 0.0001f) {
+                            countMax = count * recipe.IngredientValueGetter.ValuePerUnitOf(td);
+                            def = td;
+                            type = ingType;
+                        }
+                    }
+                }
+
+                if (countMax < recipeIngredient.GetBaseCount())
+                    yield return new NotResolved {
+                        Def = def,
+                        IngCount = recipeIngredient,
+                        IngType = type,
+                        Count = countMax
+                    };
+            }
+        }
+
+        public static IEnumerable<Pair<IngredientCount, float>> GetNotAllowedCount(Bill bill) {
+            var billProduction = (Bill_Production) bill;
+            var recipe = bill.recipe;
+            foreach (var recipeIngredient in recipe.ingredients) {
+                var countMax = 0f;
+                foreach (var td in recipeIngredient.filter.AllowedThingDefs) {
+                    var ingType = GetType(td, recipeIngredient, billProduction);
+                    if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed) {
+                        var count = ThingCountOnMap(td);
 
                         if (td.smallVolume)
                             count *= 10f;
 
                         if (count > countMax || countMax < 0.0001f)
-                        {
                             countMax = count * recipe.IngredientValueGetter.ValuePerUnitOf(td);
-                        }
                     }
                 }
 
-                if (countMax < recipeIngredient.GetBaseCount()/* && ingredientCount != null*/)
-                    yield return new Pair<IngredientCount, float>(/*ingredientCount*/recipeIngredient, countMax);
+                if (countMax < recipeIngredient.GetBaseCount())
+                    yield return new Pair<IngredientCount, float>(recipeIngredient, countMax);
             }
         }
 
-        public static string GetMaxAllowedCount(RecipeDef r, IngredientCount ing, bool isNutrition)
-        {
+        public static string GetMaxAllowedCount(RecipeDef r, IngredientCount ing, bool isNutrition) {
             float countMax = 0f, countMaxNutrition = 0f;
 
             var bill = CurrentBill;
             if (bill == null)
                 return "";
 
-            foreach (var td in ing.filter.AllowedThingDefs)
-            {
+            foreach (var td in ing.filter.AllowedThingDefs) {
                 var ingType = GetType(td, ing, bill);
-                if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed)
-                {
-                    float count = ThingCountOnMap(td);
+                if (ingType != ERecipeType.Unknown && ingType != ERecipeType.SelectableNotAllowed) {
+                    var count = ThingCountOnMap(td);
 
                     if (td.smallVolume)
                         count *= 10f;
 
-                    if (count > countMax)
-                    {
+                    if (count > countMax) {
                         countMax = count;
 
-                        if (isNutrition)
-                        {
-                            countMaxNutrition = count * NutritionValuePerUnitOf(td);
-                        }
+                        if (isNutrition) countMaxNutrition = count * NutritionValuePerUnitOf(td);
                     }
 
 
@@ -99,35 +131,22 @@ namespace BillRequirementsPlus
             string result;
 
             if (isNutrition)
-                result = !Settings.UseDashes || countMaxNutrition >= ing.GetBaseCount() ? $" ({countMaxNutrition} / {countMax})" : " (-)";
+                result = !Settings.UseDashes || countMaxNutrition >= ing.GetBaseCount()
+                    ? $" ({countMaxNutrition} / {countMax})"
+                    : " (-)";
             else
                 result = !Settings.UseDashes || countMax >= ing.GetBaseCount() ? $" ({countMax})" : " (-)";
 
             return result;
         }
 
-        public static float NutritionValuePerUnitOf(ThingDef t)
-        {
-            if (!t.IsNutritionGivingIngestible)
-            {
-                return 0f;
-            }
+        public static float NutritionValuePerUnitOf(ThingDef t) {
+            if (!t.IsNutritionGivingIngestible) return 0f;
             return t.GetStatValueAbstract(StatDefOf.Nutrition);
         }
 
-        enum ERecipeType
-        {
-            FixedNotSelectable,
-            FixedSelectableAllowed,
-            SelectableAllowed,
-            SelectableNotAllowed,
-            Unknown
-        }
-
-        static ERecipeType GetType(ThingDef td, IngredientCount ing, Bill_Production bill)
-        {
-            if (ing.IsFixedIngredient)
-            {
+        private static ERecipeType GetType(ThingDef td, IngredientCount ing, Bill_Production bill) {
+            if (ing.IsFixedIngredient) {
                 if (!bill.recipe.fixedIngredientFilter.Allows(td))
                     return ERecipeType.FixedNotSelectable;
 
@@ -138,60 +157,46 @@ namespace BillRequirementsPlus
             }
 
             if (bill.recipe.fixedIngredientFilter.Allows(td))
-            {
-                return bill.ingredientFilter.Allows(td) ? ERecipeType.SelectableAllowed : ERecipeType.SelectableNotAllowed;
-            }
+                return bill.ingredientFilter.Allows(td)
+                    ? ERecipeType.SelectableAllowed
+                    : ERecipeType.SelectableNotAllowed;
 
             return ERecipeType.Unknown;
         }
-        
-        static Bill_Production GetBill(RecipeDef r)
-        {
-            IBillGiver billGiver = Find.Selector.SingleSelectedThing as IBillGiver;
-            
-            if (billGiver != null)
-            {
-                return (Bill_Production)billGiver.BillStack.Bills.FirstOrDefault((Bill b) => b.recipe == r);
-            }
 
-            return null;
-        }
-
-        static float ThingCountOnMap(ThingDef d)
-        {
-            if (!_thingCountOnMapCached.TryGetValue(d, out CountInfo countInfo))
-            {
+        private static float ThingCountOnMap(ThingDef d) {
+            if (!ThingCountOnMapCached.TryGetValue(d, out var countInfo)) {
                 countInfo = new CountInfo();
-                _thingCountOnMapCached[d] = countInfo;
+                ThingCountOnMapCached[d] = countInfo;
             }
 
-            int ticks = Find.TickManager.TicksGame;
-            if (Math.Abs(ticks - countInfo.tickUpdated) > 180)
-            {
+            var ticks = Find.TickManager.TicksGame;
+            if (Math.Abs(ticks - countInfo.TickUpdated) > UpdateDelayThingsCount) {
                 float count = 0;
-                List<Thing> list = Find.CurrentMap.listerThings.ThingsInGroup(ThingRequestGroup.HaulableAlways);
-                foreach (Thing thing in list)
-                {
-                    if (!thing.Position.Fogged(thing.Map) && d == thing.def && (Settings.CountForbiddenItems || !thing.IsForbidden(Faction.OfPlayer)))
+                var list = Find.CurrentMap.listerThings.ThingsInGroup(ThingRequestGroup.HaulableAlways);
+                foreach (var thing in list)
+                    if (!thing.Position.Fogged(thing.Map) && d == thing.def &&
+                        (Settings.CountForbiddenItems || !thing.IsForbidden(Faction.OfPlayer)))
                         count += thing.stackCount;
-                }
 
-                countInfo.count = count;
-                countInfo.tickUpdated = ticks;
+                countInfo.Count = count;
+                countInfo.TickUpdated = ticks;
             }
 
-            return countInfo.count;
+            return countInfo.Count;
         }
 
-        public class CountInfo
-        {
-            public int tickUpdated = 0;
-            public float count = 0;
+        public enum ERecipeType {
+            FixedNotSelectable,
+            FixedSelectableAllowed,
+            SelectableAllowed,
+            SelectableNotAllowed,
+            Unknown
         }
 
-        private static Dictionary<ThingDef, CountInfo> _thingCountOnMapCached = new Dictionary<ThingDef, CountInfo>();
-
-        public static ModSettings Settings;
-        public static Bill_Production CurrentBill { get; set; }
+        public class CountInfo {
+            public float Count;
+            public int TickUpdated;
+        }
     }
 }
