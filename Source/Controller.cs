@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reflection;
-using Harmony;
+using HarmonyLib;
 using RimWorld;
 using UnityEngine;
 using Verse;
@@ -15,7 +15,7 @@ namespace BillRequirementsPlus {
         public static ModSettings Settings;
 
         public BillRequirementsMod(ModContentPack content) : base(content) {
-            HarmonyInstance.Create("rimworld.harmony.bill_requirements_plus").PatchAll(Assembly.GetExecutingAssembly());
+            new Harmony("rimworld.harmony.bill_requirements_plus").PatchAll(Assembly.GetExecutingAssembly());
             Settings = GetSettings<ModSettings>();
             Log.Message("BillRequirementsPlus :: Initialized");
         }

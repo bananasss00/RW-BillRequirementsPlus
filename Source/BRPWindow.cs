@@ -45,7 +45,7 @@ namespace BillRequirementsPlus {
             var linesToDraw = 0;
             var drawEntrys = string.IsNullOrEmpty(_quickSearch)
                 ? _badBills
-                : _badBills.Where(x => x.Bill.recipe.ProducedThingDef?.LabelCap.ToLower().Contains(_quickSearch) ?? true)
+                : _badBills.Where(x => x.Bill.recipe.ProducedThingDef?.LabelCap.ToString().ToLower().Contains(_quickSearch) ?? true)
                     .ToList();
 
             drawEntrys.ForEach(x => linesToDraw += x.IngredientsStrs.Count + 1);
