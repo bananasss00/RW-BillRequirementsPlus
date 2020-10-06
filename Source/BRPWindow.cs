@@ -10,11 +10,14 @@ namespace BillRequirementsPlus {
         private int _nextUpdateTick;
         private string _quickSearch = "";
         private Vector2 _resultsAreaScroll;
+        private int _openedTime;
+        private const int SetFocusDelay = 30;
 
         public BRPWindow() {
             //optionalTitle = "BillRequirementsPlus";
             preventCameraMotion = false;
             absorbInputAroundWindow = false;
+            forcePause = true;
             draggable = true;
             doCloseX = true;
             _nextUpdateTick = 0;
@@ -23,6 +26,11 @@ namespace BillRequirementsPlus {
 
         public override Vector2 InitialSize => new Vector2(640f, 480f);
 
+        public override void PostOpen() {
+            base.PostOpen();
+            _openedTime = Time.frameCount;
+        }
+
         public override void DoWindowContents(Rect inRect) {
             if (Find.TickManager.TicksGame >= _nextUpdateTick) {
                 UpdateDrawerList();
@@ -30,12 +38,14 @@ namespace BillRequirementsPlus {
             }
 
             Text.Font = GameFont.Tiny;
-
+            
             var listing = new Listing_Standard {ColumnWidth = inRect.width};
             listing.Begin(inRect);
 
+            GUI.SetNextControlName("QuickSearchField");
             _quickSearch = Widgets.TextField(new Rect(0, 0, inRect.width - 16f, 30f), _quickSearch);
-
+            if (Time.frameCount > _openedTime + SetFocusDelay) // prevent input bind key
+                UI.FocusControl("QuickSearchField", this);
 
             var outRect = new Rect(inRect);
             outRect.yMin += 35f;
