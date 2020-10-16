@@ -11,7 +11,7 @@ namespace BillRequirementsPlus {
         private string _quickSearch = "";
         private Vector2 _resultsAreaScroll;
         private int _openedTime;
-        private const int SetFocusDelay = 30;
+        private const int SetFocusDelay = 1;
 
         public BRPWindow() {
             //optionalTitle = "BillRequirementsPlus";
