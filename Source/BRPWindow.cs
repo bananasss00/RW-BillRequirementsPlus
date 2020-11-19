@@ -53,10 +53,45 @@ namespace BillRequirementsPlus {
             outRect.width -= 5f;
 
             var linesToDraw = 0;
+            var searchReq = _quickSearch.ToLower();
             var drawEntrys = string.IsNullOrEmpty(_quickSearch)
                 ? _badBills
-                : _badBills.Where(x => x.Bill.recipe.ProducedThingDef?.LabelCap.ToString().ToLower().Contains(_quickSearch) ?? true)
+                : _badBills.Where(x => x.Bill.recipe.ProducedThingDef?.LabelCap.ToString().ToLower().Contains(searchReq) ?? false) // hide bills without producedDef
                     .ToList();
+
+            if (!string.IsNullOrEmpty(_quickSearch)) {
+                List<BadBill> getRecursiveDeps(List<BadBill> required, List<BadBill> all) {
+                    var _all = all.Except(required).ToList();
+                    var @new = new List<BadBill>();
+                    foreach (var bill in required) {
+                        foreach (var ing in bill.NotResolvedIngs) {
+                            if (ing.First.IsFixedIngredient) {
+                                if (ing.First.FixedIngredient != null) {
+                                    var bills = _all.Where(x => x.Bill.recipe.ProducedThingDef == ing.First.FixedIngredient);
+                                    @new.AddRange(bills);
+                                }
+                            }
+                            else {
+                                var bills = _all.Where(x => ing.First.filter.Allows(x.Bill.recipe.ProducedThingDef));
+                                @new.AddRange(bills);
+                            }
+                        }
+                    }
+
+                    var result = new List<BadBill>();
+                    result.AddRange(required);
+                    if (@new.Any()) {
+                        var @new2 = getRecursiveDeps(@new, _all);
+                        if (@new2.Any()) {
+                            result.AddRange(@new2);
+                        }
+                    }
+
+                    return result;
+                }
+
+                drawEntrys = getRecursiveDeps(drawEntrys, _badBills);
+            }
 
             drawEntrys.ForEach(x => linesToDraw += x.IngredientsStrs.Count + 1);
 
